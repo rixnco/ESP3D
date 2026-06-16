@@ -95,13 +95,17 @@ uint8_t ESP_SD::getState(bool refresh) {
                                                                 : false)) {
     _state = ESP_SDCARD_NOT_PRESENT;
     return _state;
+  } else {
+    esp3d_log("SD Detect Pin ok");
   }
 #endif  // ESP_SD_DETECT_PIN
   // if busy doing something return state
   if (!((_state == ESP_SDCARD_NOT_PRESENT) || _state == ESP_SDCARD_IDLE)) {
+    esp3d_log("Busy SD State");
     return _state;
   }
   if (!refresh) {
+    esp3d_log("SD State cache is %d", _state);
     return _state;  // to avoid refresh=true + busy to reset SD and waste time
   } else {
     _sizechanged = true;
@@ -116,8 +120,10 @@ uint8_t ESP_SD::getState(bool refresh) {
   // refresh content if card was removed
   if (ESP3D_SD_Card.begin((ESP_SD_CS_PIN == -1) ? SS : ESP_SD_CS_PIN,
                SD_SCK_MHZ(FREQMZ / _spi_speed_divider))) {
+      esp3d_log("Init SD State ok");
       _state = ESP_SDCARD_IDLE;
   }
+  esp3d_log("SD State is %d", _state);
 
   return _state;
 }
