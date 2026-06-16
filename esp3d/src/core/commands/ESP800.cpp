@@ -26,6 +26,9 @@
 #ifdef FILESYSTEM_FEATURE
 #include "../../modules/filesystem/esp_filesystem.h"
 #endif  // FILESYSTEM_FEATURE
+#ifdef SD_DEVICE
+#include "../../modules/filesystem/esp_sd.h"
+#endif  // SD_DEVICE
 #if defined(WIFI_FEATURE) || defined(ETH_FEATURE) || defined(BLUETOOTH_FEATURE)
 #include "../../modules/network/netconfig.h"
 #if defined(WIFI_FEATURE)
@@ -147,13 +150,31 @@ void ESP3DCommands::ESP800(int cmd_params_pos, ESP3DMessage* msg) {
   }
 
   // SD connection
-  if (ESP3DSettings::GetSDDevice() == ESP_NOT_SHARED_SD) {
-    tmpstr = "direct";
-  } else if (ESP3DSettings::GetSDDevice() == ESP_SHARED_SD) {
-    tmpstr = "shared";
+  // Check both the compile-time setting and the actual runtime presence
+  uint8_t sd_config = ESP3DSettings::GetSDDevice();
+  // If SD is compiled in, check if it's actually present/accessible
+#ifdef SD_DEVICE
+  if (sd_config == ESP_NOT_SHARED_SD || sd_config == ESP_SHARED_SD) {
+    // Check cached state first, only force refresh if state is unknown
+    uint8_t sd_state = ESP_SD::getState(false);  // Use cached state first
+    if (sd_state == ESP_SDCARD_NOT_PRESENT) {
+      // If not detected before, try a fresh check
+      sd_state = ESP_SD::getState(true);
+    }
+    if (sd_state == ESP_SDCARD_IDLE) {
+      tmpstr = (sd_config == ESP_NOT_SHARED_SD) ? "direct" : "shared";
+    } else {
+      // SD is not present or not accessible, report as none
+      tmpstr = "none";
+    }
   } else {
     tmpstr = "none";
   }
+#else
+  // SD not compiled in
+  tmpstr = "none";
+#endif // SD_DEVICE
+  
   if (!dispatchKeyValue(json, "SDConnection", tmpstr.c_str(), target,
                         requestId)) {
     return;
