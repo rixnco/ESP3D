@@ -91,8 +91,11 @@ time_t getDateTimeFile(ESP3D_File& filehandle) {
 uint8_t ESP_SD::getState(bool refresh) {
 #if defined(ESP_SD_DETECT_PIN) && ESP_SD_DETECT_PIN != -1
   // no need to go further if SD detect is not correct
-  if (!((digitalRead(ESP_SD_DETECT_PIN) == ESP_SD_DETECT_VALUE) ? true
-                                                                : false)) {
+  int detect_pin_value = digitalRead(ESP_SD_DETECT_PIN);
+  esp3d_log("SD Detect Pin %d value: %d (expected: %d)", 
+            ESP_SD_DETECT_PIN, detect_pin_value, ESP_SD_DETECT_VALUE);
+  if (!(detect_pin_value == ESP_SD_DETECT_VALUE)) {
+    esp3d_log_e("SD card not present (detect pin mismatch)");
     _state = ESP_SDCARD_NOT_PRESENT;
     return _state;
   } else {
@@ -122,6 +125,8 @@ uint8_t ESP_SD::getState(bool refresh) {
                SD_SCK_MHZ(FREQMZ / _spi_speed_divider))) {
       esp3d_log("Init SD State ok");
       _state = ESP_SDCARD_IDLE;
+  } else {
+      esp3d_log_e("SD card initialization failed");
   }
   esp3d_log("SD State is %d", _state);
 

@@ -107,6 +107,13 @@ bool Esp3D::begin() {
     restart_now();
   }
 
+#ifdef SD_DEVICE
+  // Now that settings are loaded, force SD reinitialization with correct speed settings
+  // This ensures SD speed divider from settings is properly applied
+  uint8_t sd_state = ESP_SD::getState(true);
+  esp3d_log("SD card state after settings loaded: %d", sd_state);
+#endif  // SD_DEVICE
+
   esp3d_commands.getOutputClient(true);
 
   #if defined(USB_SERIAL_FEATURE)

@@ -52,6 +52,11 @@ bool DevicesServices::begin() {
   if (!ESP_SD::begin()) {
     esp3d_log_e("Error sd intialization failed");
     res = false;
+  } else {
+    // Force initial SD state check to detect card presence at boot
+    // This ensures SD card is initialized and detected properly
+    uint8_t sd_state = ESP_SD::getState(true);
+    esp3d_log("SD card initial state: %d", sd_state);
   }
 #endif  // SD_DEVICE
 #ifdef DISPLAY_DEVICE

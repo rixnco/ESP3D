@@ -542,17 +542,21 @@ bool GcodeHost::processFile(const char *filename,
   }
   // TODO UD = USB DISK
 #if defined(SD_DEVICE)
-  if (_fileName.startsWith(ESP_SD_FS_HEADER)) {
+  // Check for both uppercase (/SD) and lowercase (/sd) versions
+  if (_fileName.startsWith(ESP_SD_FS_HEADER) || _fileName.startsWith("/sd")) {
     esp3d_log("Processing SD file");
     target_found = true;
+    // Remove the appropriate prefix (both /SD and /sd have same length)
     _fileName =
         _fileName.substring(strlen(ESP_SD_FS_HEADER), _fileName.length());
     _fsType = TYPE_SD_STREAM;
   }
 #endif  // SD_DEVICE
 #if defined(FILESYSTEM_FEATURE)
-  if (!target_found && _fileName.startsWith(ESP_FLASH_FS_HEADER)) {
+  // Check for both uppercase (/FS) and lowercase (/fs) versions
+  if (!target_found && (_fileName.startsWith(ESP_FLASH_FS_HEADER) || _fileName.startsWith("/fs"))) {
     target_found = true;
+    // Remove the appropriate prefix (both /FS and /fs have same length)
     _fileName =
         _fileName.substring(strlen(ESP_FLASH_FS_HEADER), _fileName.length());
     esp3d_log("Processing /FS file %s", _fileName.c_str());
