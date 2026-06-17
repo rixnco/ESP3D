@@ -180,6 +180,17 @@ void ESP3DCommands::ESP800(int cmd_params_pos, ESP3DMessage* msg) {
     return;
   }
 
+  // Streaming support
+#if defined(GCODE_HOST_FEATURE)
+  tmpstr = "Enabled";
+#else
+  tmpstr = "Disabled";
+#endif  // GCODE_HOST_FEATURE
+  if (!dispatchKeyValue(json, "Streaming", tmpstr.c_str(), target,
+                        requestId)) {
+    return;
+  }
+
   // Serial protocol
 #if COMMUNICATION_PROTOCOL == MKS_SERIAL
   tmpstr = "MKS";
