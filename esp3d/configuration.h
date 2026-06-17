@@ -371,7 +371,7 @@
 //LOG_OUTPUT_SERIAL2
 //LOG_OUTPUT_TELNET
 //LOG_OUTPUT_WEBSOCKET
-#define ESP_LOG_FEATURE LOG_OUTPUT_SERIAL0
+// #define ESP_LOG_FEATURE LOG_OUTPUT_SERIAL0
 
 // LOG_LEVEL_NONE
 // LOG_LEVEL_ERROR
@@ -389,7 +389,7 @@
 //#define ESP_BENCHMARK_FEATURE
 
 //Disable sanity check at compilation
-//#define ESP_NO_SANITY_CHECK
+#define ESP_NO_SANITY_CHECK
 
 
 /************************************
