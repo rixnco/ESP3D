@@ -236,6 +236,11 @@ void Telnet_Server::flushChar(char c) { flushData((uint8_t *)&c, 1, ESP3DMessage
 
 void Telnet_Server::flushBuffer() {
   _buffer[_buffer_size] = 0x0;
+  // remove ~ if it is the first char in the buffer
+  if (_buffer_size > 0 && _buffer[0] == '~') {
+    memmove(_buffer, _buffer + 1, _buffer_size - 1);
+    _buffer_size--;
+}
   flushData((uint8_t *)_buffer, _buffer_size, ESP3DMessageType::unique);
   _buffer_size = 0;
 }

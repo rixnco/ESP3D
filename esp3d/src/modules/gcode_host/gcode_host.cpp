@@ -124,6 +124,15 @@ void GcodeHost::flush() {
   _response = (const char *)_buffer;
   esp3d_log("Stream got the response: %s", _response.c_str());
   _response.toLowerCase();
+
+  // Marlin can emit periodic busy messages while a long command is executing.
+  // Keep the ACK watchdog alive to avoid false timeout during streaming.
+  if (_step == HOST_WAIT4_ACK &&
+      (_response.indexOf("echo:busy: processing") != -1 ||
+       _response.indexOf("busy: processing") != -1)) {
+    _startTimeOut = millis();
+  }
+
   if (isAck(_response)) {
     // check if we have proper ok response
     // like if numbering is enabled
@@ -318,7 +327,7 @@ bool GcodeHost::isAckNeeded() {
 }
 void GcodeHost::processCommand() {
   if (!isCommand()) {
-    esp3d_log_e("Command %s is not valid", _currentCommand.c_str());
+    esp3d_log("Command %s is not valid", _currentCommand.c_str());
     _step = HOST_READ_LINE;
   } else {
     esp3d_log("Command %s is valid", _currentCommand.c_str());

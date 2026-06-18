@@ -221,7 +221,7 @@
 /* SD card detect pin
  * The pin used to detect SD card
  */
-#define ESP_SD_DETECT_PIN 26
+#define ESP_SD_DETECT_PIN -1
 
 /* SD card detect pin value
  * State of SD card detect pin when card is present
@@ -259,17 +259,17 @@
 
 // Enable global filesystem
 // Allows to access to all filesystems fromsame location
-#define GLOBAL_FILESYSTEM_FEATURE 
+// #define GLOBAL_FILESYSTEM_FEATURE 
 
 // WebDav access
 // All filesystems
 // Use WebDav to access to your filesystem
-#define WEBDAV_FEATURE FS_ROOT
+#define WEBDAV_FEATURE FS_SD
 
 // FTP access
 // ESP3D SD
 // Use FTP to access to your filesystem (1 connection only)
-#define FTP_FEATURE FS_ROOT
+#define FTP_FEATURE FS_SD
 
 /************************************
 *
@@ -377,7 +377,7 @@
 // LOG_LEVEL_ERROR
 // LOG_LEVEL_DEBUG
 // LOG_LEVEL_VERBOSE
-#define ESP3D_LOG_LEVEL LOG_LEVEL_VERBOSE
+#define ESP3D_LOG_LEVEL LOG_LEVEL_DEBUG
 
 
 #ifdef ESP_LOG_FEATURE

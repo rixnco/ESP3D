@@ -62,6 +62,9 @@
 #if defined(USB_SERIAL_FEATURE)
 #include "../modules/usb-serial/usb_serial_service.h"
 #endif  // USB_SERIAL_FEATURE
+#ifdef SD_DEVICE
+#include "..\modules\filesystem\esp_sd.h"
+#endif  // SD_DEVICE
 
 bool Esp3D::restart = false;
 
