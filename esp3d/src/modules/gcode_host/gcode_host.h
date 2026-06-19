@@ -111,6 +111,20 @@ class GcodeHost {
   bool isCommand();
   bool isAckNeeded();
   bool isAck(String& line);
+  
+  // M73 Progress tracking helpers
+  void parseM73(const char* command);
+  void broadcastM73();
+
+ public:
+  // M73 Progress tracking
+  uint8_t getM73Progress() const { return _m73_progress; }
+  uint32_t getM73Max() const { return _m73_max; }
+  uint32_t getM73ElapsedTime() const { return _m73_elapsed_time; }
+  uint32_t getM73RemainingTime() const { return _m73_remaining_time; }
+  bool hasM73Data() const { return _m73_has_data; }
+  uint32_t getM73StartTime() const { return _m73_start_time; }
+  void resetM73History() { _m73_last_broadcast = 0; }
 
  private:
   ESP3DScriptFIFO _scriptList;
@@ -133,6 +147,16 @@ class GcodeHost {
   ESP3DAuthenticationLevel _auth_type;
   uint64_t _startTimeOut;
   bool _needRelease;
+  
+  // M73 Progress tracking
+  uint8_t _m73_progress = 0;       // Current progress percentage
+  uint32_t _m73_max = 100;         // Max progress value
+  uint32_t _m73_elapsed_time = 0;  // Elapsed time in seconds
+  uint32_t _m73_remaining_time = 0; // Remaining time in seconds
+  bool _m73_has_data = false;      // Whether M73 has been received
+  uint32_t _m73_start_time = 0;    // Stream start timestamp
+  uint32_t _m73_last_broadcast = 0; // Last WebSocket broadcast time
+  uint32_t _m73_last_progress = 0;  // Last progress value
 };
 
 extern GcodeHost esp3d_gcode_host;

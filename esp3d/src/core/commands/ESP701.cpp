@@ -56,8 +56,7 @@ void ESP3DCommands::ESP701(int cmd_params_pos, ESP3DMessage* msg) {
       case HOST_READ_LINE:
       case HOST_PROCESS_LINE:
       case HOST_WAIT4_ACK:
-        // TODO add % of progress and filename if any
-        // totalSize / processedSize / fileName
+        // Status with M73 progress info
         if (json) {
           ok_msg = "{\"status\":\"processing\",\"total\":\"" +
                    String(esp3d_gcode_host.totalSize()) +
@@ -66,6 +65,13 @@ void ESP3DCommands::ESP701(int cmd_params_pos, ESP3DMessage* msg) {
                    String(esp3d_gcode_host.getFSType());
           if (esp3d_gcode_host.getFSType() != TYPE_SCRIPT_STREAM) {
             ok_msg += "\",\"name\":\"" + String(esp3d_gcode_host.fileName());
+          }
+          // Add M73 progress if available
+          if (esp3d_gcode_host.hasM73Data()) {
+            ok_msg += "\",\"m73_progress\":" + String(esp3d_gcode_host.getM73Progress()) +
+                     ",\"m73_max\":" + String(esp3d_gcode_host.getM73Max()) +
+                     ",\"m73_elapsed\":" + String(esp3d_gcode_host.getM73ElapsedTime()) +
+                     ",\"m73_remaining\":" + String(esp3d_gcode_host.getM73RemainingTime());
           }
           ok_msg += "\"}";
         } else {

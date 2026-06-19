@@ -23,6 +23,7 @@
 #include "../../core/esp3d_commands.h"
 #include "../../core/esp3d_settings.h"
 #include "gcode_host.h"
+#include "m73_history.h"
 
 #if defined(FILESYSTEM_FEATURE)
 #include "../filesystem/esp_filesystem.h"
@@ -67,6 +68,15 @@ void GcodeHost::end() {
   _bufferSize = 0;
   _totalSize = 0;
   _processedSize = 0;
+  // Reset M73 data
+  _m73_progress = 0;
+  _m73_max = 100;
+  _m73_elapsed_time = 0;
+  _m73_remaining_time = 0;
+  _m73_has_data = false;
+  _m73_start_time = 0;
+  _m73_last_broadcast = 0;
+  _m73_last_progress = 0;
 #if defined(AUTHENTICATION_FEATURE)
   _auth = ESP3DAuthenticationLevel::guest;
 #else
@@ -204,6 +214,18 @@ void GcodeHost::startStream() {
   _step = HOST_READ_LINE;
   _nextStep = HOST_READ_LINE;
   _processedSize = 0;
+  
+  // Initialize M73 tracking
+  _m73_progress = 0;
+  _m73_max = 100;
+  _m73_elapsed_time = 0;
+  _m73_remaining_time = 0;
+  _m73_has_data = false;
+  _m73_start_time = millis() / 1000;  // Start time in seconds
+  _m73_last_broadcast = 0;
+  _m73_last_progress = 0;
+  
+  esp3d_log("Stream started, M73 tracking initialized");
 }
 
 void GcodeHost::endStream() {
@@ -351,6 +373,9 @@ void GcodeHost::processCommand() {
       }
 
     } else {
+      // Parse M73 before sending to printer
+      parseM73(_currentCommand.c_str());
+      
       ESP3DMessage *msg = esp3d_message_manager.newMsg(
           ESP3DClientType::stream, esp3d_commands.getOutputClient(),
           (uint8_t *)_currentCommand.c_str(), _currentCommand.length(), _auth);
@@ -377,6 +402,10 @@ void GcodeHost::handle() {
   if (_step == HOST_NO_STREAM) {
     return;
   }
+  
+  // Broadcast M73 progress if available and time to do so
+  broadcastM73();
+  
   switch (_step) {
     case HOST_START_STREAM:
       startStream();
@@ -590,6 +619,102 @@ bool GcodeHost::processFile(const char *filename,
   _step = HOST_START_STREAM;
   _auth_type = auth_type;
   return true;
+}
+
+// Parse M73 command from GCODE line
+// M73 P<progress> Q<max> [S<remaining>] [R<elapsed>]
+void GcodeHost::parseM73(const char *command) {
+  if (!command || strncasecmp(command, "M73", 3) != 0) {
+    return;
+  }
+  
+  esp3d_log("M73 detected: %s", command);
+  _m73_has_data = true;
+  
+  // Parse P parameter (progress)
+  const char *p_pos = strchr(command, 'P');
+  if (p_pos) {
+    _m73_progress = (uint8_t)std::strtol(p_pos + 1, nullptr, 10);
+    if (_m73_progress > 100) _m73_progress = 100;
+  }
+  
+  // Parse Q parameter (max value, typically 100)
+  const char *q_pos = strchr(command, 'Q');
+  if (q_pos) {
+    _m73_max = std::strtol(q_pos + 1, nullptr, 10);
+  }
+  
+  // Parse S parameter (remaining time in seconds)
+  const char *s_pos = strchr(command, 'S');
+  if (s_pos) {
+    _m73_remaining_time = std::strtol(s_pos + 1, nullptr, 10);
+  }
+  
+  // Parse R parameter (elapsed time in seconds)
+  const char *r_pos = strchr(command, 'R');
+  if (r_pos) {
+    _m73_elapsed_time = std::strtol(r_pos + 1, nullptr, 10);
+  }
+  
+  // Add to history
+#if defined(GCODE_HOST_FEATURE)
+  m73_history.addEntry(_m73_progress, _m73_elapsed_time, _m73_remaining_time);
+#endif
+  
+  esp3d_log("M73 parsed: P=%d, Q=%d, S=%d, R=%d", 
+    _m73_progress, _m73_max, _m73_remaining_time, _m73_elapsed_time);
+}
+
+// Broadcast M73 progress to WebSocket clients
+void GcodeHost::broadcastM73() {
+  if (!_m73_has_data || _step == HOST_NO_STREAM) {
+    return;
+  }
+  
+  // Only broadcast every 500ms to avoid flooding
+  uint32_t now = millis();
+  if (now - _m73_last_broadcast < 500) {
+    return;
+  }
+  
+  // Don't broadcast if progress hasn't changed
+  if (_m73_progress == _m73_last_progress) {
+    return;
+  }
+  
+  _m73_last_broadcast = now;
+  _m73_last_progress = _m73_progress;
+  
+  // Create M73 progress notification with history analytics
+  char json_buffer[1024];
+  uint32_t elapsed = (uint32_t)((millis() / 1000) - _m73_start_time);
+  
+  // Get history statistics
+  M73History::Stats stats = m73_history.getStatistics();
+  uint32_t eta = m73_history.getEstimatedTotalTime();
+  uint8_t accuracy = m73_history.getPredictionAccuracy();
+  
+  // Calculate percent for display
+  uint8_t display_percent = (_m73_max > 0) ? ((_m73_progress * 100) / _m73_max) : 0;
+  
+  int len = snprintf(json_buffer, sizeof(json_buffer),
+    "{\"type\":\"M73\",\"progress\":%d,\"max\":%d,\"elapsed\":%d,"
+    "\"remaining\":%d,\"percent\":%d,\"eta_total\":%d,"
+    "\"accuracy\":%d,\"avg_speed\":%.2f,\"stream_elapsed\":%d,"
+    "\"stream_bytes\":%d,\"stream_total\":%d,\"timestamp\":%lld}",
+    _m73_progress, _m73_max, _m73_elapsed_time,
+    _m73_remaining_time, display_percent, eta,
+    accuracy, stats.avg_speed, elapsed,
+    (int)_processedSize, (int)_totalSize, millis());
+  
+  if (len > 0 && len < (int)sizeof(json_buffer)) {
+    esp3d_commands.dispatch(
+        json_buffer, ESP3DClientType::web_socket, no_id,
+        ESP3DMessageType::system_notify, ESP3DClientType::stream,
+        ESP3DAuthenticationLevel::admin);
+    esp3d_log("M73 broadcast: progress=%d%%, ETA=%d seconds, accuracy=%d%%",
+      display_percent, eta, accuracy);
+  }
 }
 
 #endif  // GCODE_HOST_FEATURE
